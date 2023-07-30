@@ -1,0 +1,673 @@
+{/* <div class="flex">
+    <div class="m-auto">
+    
+              <form [formGroup]="Signupform">
+                <h1 class="text-center" style="color: rgb(150, 143, 143);">Signup</h1>
+               <br>
+               <div class="row">
+                <div class="col">
+
+               <div class="form-outline mb-4">
+                <label for="formGroupExampleInput" class="form-label">name</label>
+                <input type="text" class="form-control"  formControlName="name" [ngClass]="{'is-invalid':signup.name.errors&&(signup.name.touched ||signup.name.dirty)}" >
+                <div *ngIf="signup.name.invalid&&(signup.name.touched||signup.name.dirty)" class="invalid-feedback">
+                  <p *ngIf="signup.name.errors.required">Field can't be empty</p>
+                  <p *ngIf="signup.name.errors.pattern">Enter letters</p>
+                </div>
+              </div>
+                <div class="form-outline mb-4">
+                <label for="formGroupExampleInput" class="form-label">Username</label>
+                <input type="text" class="form-control"  formControlName="username" [ngClass]="{'is-invalid':signup.username.errors&&(signup.username.touched ||signup.username.dirty)}" >
+                <span class="error-message" *ngIf="Signupform.hasError('usernameExists')">Username already taken</span> 
+                <div *ngIf="signup.username.invalid&&(signup.username.touched||signup.username.dirty)" class="invalid-feedback">
+                  <p *ngIf="signup.username.errors.required">Field can't be empty</p>
+                  <p *ngIf="signup.username.errors.pattern">Invalid Format</p>
+                </div>
+              </div>
+            </div>
+          </div>
+                <!-- Email input -->
+                <div class="form-outline mb-4">
+                  <label for="exampleInputEmail1" class="form-label">Email</label>
+                  <input type="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" formControlName="email"
+                  [ngClass]="{'is-invalid':signup.email.errors&&(signup.email.touched || signup.email.dirty)}">
+                  <div *ngIf="signup.email.invalid &&(signup.email.touched || signup.email.dirty)" class="invalid-feedback">
+                    <p  *ngIf="signup.email.errors.required">Field Can't be empty</p>
+                    <p  *ngIf="signup.email.errors.email">Invalid Format</p>
+                  </div>
+                </div>
+      
+                <!-- Password input -->
+                <div class="form-outline mb-3">
+                  <label for="exampleInputPassword1" class="form-label">Password</label>
+                  <input type="password" class="form-control" id="exampleInputPassword1" formControlName="password"
+                  [ngClass]="{'is-invalid':signup.password.errors && (signup.password.touched ||signup.password.dirty)}">
+                  <div  *ngIf="signup.password.invalid &&(signup.password.touched || signup.password.dirty)" class="invalid-feedback" >
+                    <p  *ngIf="signup.password.errors.required">Field Can't be empty</p>
+                    <p  *ngIf="signup.password.errors.minlength">Requires minimum length of 6</p>
+
+                  </div>
+                </div>
+               <br>
+               <div class="form-outline mb-3">
+                <label for="exampleInputPassword1" class="form-label">Confirm Password</label>
+                <input type="password" class="form-control" id="exampleInputPassword1" formControlName="confirmpassword">
+                <span class="error-message" *ngIf="Signupform.hasError('passwordMismatch')">Passwords do not match</span>
+              </div>
+              
+              <br>
+                <button type="submit" class="btn btn-primary"  (click)="Signup()" >Signup</button>
+              <br>
+              </form>
+            </div>
+          </div>
+
+
+          //socket backend
+          // const chatData = require('../model/chatroom')
+// var router = express.Router();
+// var http = require('http');
+
+// var server = http.createServer(router);
+
+// var io = require('socket.io')(server,{
+//     cors:{
+//         origins : ['http://localhost:4200']
+//     }
+// });
+
+// io.on('connection',(socket)=>{
+//     console.log('new connection made');
+//     socket.on('disconnect',()=>{
+//         console.log('user disconnected');
+//     });
+// })
+
+const httpServer = require('http').createServer(app);
+const io = require('socket.io')(httpServer, {
+  cors: {origin : '*'}
+});
+
+
+io.on('connection', (socket) => {
+  console.log('a user connected');
+
+  socket.on('message', (message) => {
+    console.log(message);
+    io.emit('message', `${socket.id.substr(0, 2)} said ${message}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('a user disconnected!');
+  });
+});
+
+public sendMessage(message:any) {
+  this.socket.emit('message', message);
+}
+
+public getNewMessage = () => {
+  this.socket.on('message', (message) =>{
+    this.message$.next(message);
+  });
+  
+  return this.message$.asObservable();
+};
+
+
+
+
+<!-- other form-outline -->
+io.on('connection', (socket) => {
+  console.log('a user connected');
+
+  socket.on('message', async (data) => {
+    const { senderId, receiverId, sendmessage } = data;
+    console.log(`Received message from ${senderId} to ${receiverId}: ${sendmessage}`);
+    console.log(sendmessage);
+      // io.emit('message', `${socket.id.substr(0, 2)} said ${sendmessage}`);
+      try {
+        // Save the message to MongoDB
+        const chatMessage = new chatData({
+          senderid: senderId,
+          receiverid: receiverId,
+          message: sendmessage
+        });
+        await chatMessage.save();
+  // Find the socket associated with the receiverId
+  const receiverSocket = findReceiverSocket(receiverId);
+
+  if (receiverSocket) {
+    // Send the message only to the intended receiver
+    receiverSocket.emit('message', {
+      receiverId: receiverId,
+      message: sendmessage
+    });
+  }
+
+} catch (error) {
+  console.error('Error saving message to MongoDB:', error);
+}
+});
+
+  socket.on('disconnect', () => {
+    console.log('a user disconnected!');
+  });
+});
+
+
+function findReceiverSocket(receiverId) {
+  console.log("findReceiverSocket");
+  // Search for the socket that matches the receiver's ID
+  for (const [socketId, socket] of io.sockets.sockets) {
+    // Assuming the receiver's ID is stored in the socket's handshake data as "friendid"
+    const userId = socket.handshake.auth.friendid;
+    console.log(`friend id in findReceiverSocket is ${userId}`);
+    if (userId === receiverId) {
+      return socket;
+    }
+  }
+
+  return null; // Return null if no socket is found
+}
+
+
+function getRecipientId(username) {
+  for (const [socketId, user] of connectedUsers) {
+    if (user.username === username) {
+      return socketId;
+    }
+
+  }
+  return null;
+}
+// console.log(connectedUsers)
+const express = require('express');
+const cors = require('cors');
+const bodyparser = require('body-parser');
+const app = express();
+
+
+
+app.use(cors());
+app.use(bodyparser.json());
+app.use(express.json());
+app.use(express.urlencoded({extended:true}))
+
+const httpServer = require('http').createServer(app);
+const io = require('socket.io')(httpServer, {
+  cors: {origin : '*'}
+});
+
+const mongoose = require('./db')
+
+const signup = require('./routes/user')
+app.use('/',signup);
+
+const otp = require('./routes/password')
+app.use('/',otp);
+
+chatData = require('./model/chatroom');
+const SignupData = require('./model/signup')
+
+
+// const connectedUsers = new Map(); // Map to store connected users
+
+io.on('connection', (socket) => {
+  // console.log('a user connected');
+
+  socket.on('connectedusers',async(userId)=>{
+    console.log(userId)
+    const user = await SignupData.findById(userId);
+    if (user) {
+      //  await chatData.save(user)
+      const chatMessage = new chatData({
+        chatroomid: user._id,
+        createdAt: Date.now(),
+        socketId: socket.id
+      });
+      chatMessage.save()
+
+      console.log(`User ${user.username} connected.`);
+    }
+
+  })
+
+  socket.on('message', (data) => {
+    console.log(data);
+    const message = data.sendmessage;
+    const receiverid = data.receiverid
+    const friend = SignupData.findById({ 'friends._id': receiverid})
+    const  username= friend.username;
+    console.log(`socket message friend is ${username} `)
+    const recipientId = chatData.find();
+    if (recipientId) {
+      const recipientSocket = io.sockets.sockets.get(recipientId);
+      if (recipientSocket) {
+        recipientSocket.emit('new_message', message);
+        console.log(`Message sent to user with username ${recipientUsername}`);
+      }
+    }
+
+    // io.emit('message', `${socket.id.substr(0, 2)} said ${message}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`a user  disconnected!`);
+  });
+});
+
+function getRecipientId(username) {
+  for (const [socketId, user] of connectedUsers) {
+    if (user.username === username) {
+      return socketId;
+    }
+
+  }
+  return null;
+}
+console.log(connectedUsers)
+
+
+
+
+const invite = require('./routes/invite');
+const chatData = require('./model/chatroom');
+app.use('/',invite);
+
+
+app.listen(3000,()=>{
+    console.log("server running at 3000")
+})
+httpServer.listen(3001, () => console.log(`listening on port 3001`)); */}
+
+///connected user and sending message to the socket
+// socket.on('connectedusers',async(userId)=>{
+//   console.log(userId)
+//   const user = await SignupData.findById(userId);
+//   if (user) {
+//     //  await chatData.save(user)
+//     const chatMessage = new chatData({
+//       chatroom: user.username,
+//       createdAt: Date.now(),
+//       socketId: socket.id
+//     });
+//     chatMessage.save()
+
+//     console.log(`User ${user.username} connected.`);
+//   }
+
+// })
+
+// socket.on('message', async(data) => {
+//   console.log(data);
+//   const message = data.sendmessage;
+//   const receiverid = data.receiverId
+//   const senderid = data.senderId
+//   console.log(receiverid,senderid)
+//   const mainuser = await SignupData.findById({_id:senderid})
+//   console.log(mainuser)
+//   const friend = mainuser.friends.find(friend => friend._id.toString() === receiverid)
+//   if (friend) {
+//     console.log(friend);
+//   } else {
+//     console.log('Friend not found.');
+//   }
+
+//   const  friendusername= friend.username;
+//   console.log(`socket message friend is ${friend.username} `)
+ 
+// let recipient = await chatData.findOne({chatroom : friendusername} );
+//   if (recipient) {
+//     const recipientSocket = recipient.socketId;
+//   console.log(recipientSocket)
+//  let sender = await chatData.findOne({chatroom:mainuser.username})  
+//  console.log(sender)
+ 
+// const senderSocket = sender.socketId
+// console.log(senderSocket)
+
+//       console.log(`${message} sent to user with username ${friend.username}`);
+//   }
+
+// });
+
+
+
+
+// import { Component,EventEmitter, Output } from '@angular/core';
+// import { BackendService } from '../backend.service';
+// import { FormBuilder } from '@angular/forms';
+// import { ActivatedRoute, Router } from '@angular/router';
+// import { ChangeDetectorRef } from '@angular/core';
+// import { Subscription } from 'rxjs';
+// import { ChatService } from '../chat.service';
+
+// @Component({
+//   selector: 'app-chatroom',
+//   templateUrl: './chatroom.component.html',
+//   styleUrls: ['./chatroom.component.css']
+// })
+// export class ChatroomComponent {
+ 
+//   uid:any
+//    fid:any
+//   chatuser:any;
+//   friendname:any;
+//   arrayindex:any;
+//   newMessage: string = '';
+//   messageList: string[] = [];
+//  public roomId!: string;
+
+//   constructor(private chatService: BackendService,private fb:FormBuilder,private route:ActivatedRoute,
+//     private router:Router,private messageservice:ChatService){}
+
+//   ngOnInit(){
+    
+//     this.route.queryParams.subscribe(params => {
+//       const fid = params['fid'];
+//       this.chatroom(fid);
+//         this.fetchMessage()
+//     });
+    
+//   }
+//    fetchMessage(){
+//     console.log("reached fetch message");
+//     this.messageservice.getNewMessage().subscribe((message: string) => {
+//       console.log(message)
+//       this.messageList.push(message);
+//     })
+//    }
+
+//   sendMessage(fid:any) {
+//    console.log("send messg fn")
+//    console.log(fid)
+//    this.messageservice.setfriendId(fid);
+
+//     let userid = this.messageservice.getUserId();
+//     console.log(userid)
+//     this.messageservice.sendMessage(this.newMessage,userid,fid);
+//     this.newMessage = '';
+//   }
+
+
+//   chatroom(fid: any) {
+//     console.log("chatroom function executed");
+//     let userid = this.chatService.getUserId();
+//     this.messageservice.setUserId(userid);
+//     console.log(userid)
+
+//     if (fid) {
+//       this.chatService.chatdetails(userid, fid).subscribe((res: any) => {
+//         this.friendname = res.data;
+//         console.log(this.friendname);
+//       });
+//       this.privatechat(userid,fid)
+//     }
+//   }
+
+//   privatechat(userid:any,fid:any){
+//     console.log("private chat")
+//     console.log(fid)
+//    userid = this.chatService.getUserId();
+//   console.log(userid)
+
+//   }
+  
+
+// }
+
+
+
+////***************** */ app.js socket connection
+
+
+var room1 = "";
+var room2 = "";
+var room = "";
+var data;
+
+async function findRoom(user1, user2) {
+  console.log(user1, "-----", user2);
+  room1 = `${user1}-${user2}`;
+  room2 = `${user2}-${user1}`;
+  data = await chatData.findOne({
+    $or: [{ room: room2 }, { room: room1 }],
+  });
+  // console.log("db data ",data);
+  if (data == null) {
+    console.log("empty");
+    newRoom = new chatData({ room: room1, messages: [] });
+    savedRoom = await newRoom.save();
+    console.log("new  ", savedRoom.room);
+    room = savedRoom;
+    data = savedRoom;
+    console.log(room);
+  } else {
+    room = data;
+    // console.log("not empty" , room);
+  }
+}
+// for storing the incoming messages to DB
+async function storeMessage(chatRoom, msg) {
+  console.log("store message function")
+  console.log(msg)
+  try {
+    updatedMsg = await chatData.updateOne(
+      { room: chatRoom },
+      { $push: { messages: msg } }
+    );
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+io.on('connection', (socket) => {
+
+  console.log(socket.id)
+
+  socket.on('join', async(data) => {
+    const message = data.msg;
+    const receiverid = data.receiver
+    const senderid = data.sender
+    await findRoom(senderid,receiverid); 
+   
+    // Join the room
+
+    await socket.join(room.room);
+    console.log("room from old msg ", room);
+    // await io.to(room.room).emit("old_message", data.messages); // send the old chats to fronend
+    
+  });
+  socket.on('send_message',async(msg)=>{
+    console.log("send message with data:",msg)
+    // console.log("sender in send message", msg.sender);
+   await findRoom(msg.sender,msg.receiver); 
+    console.log("send msg ", room.room);
+    // await io.to(room.room).emit('new_message',msg.msg);
+     socket.to(room.room).emit('new_message',msg.msg);
+
+    // socket.emit('new_message',msg.msg)
+    await storeMessage(room.room, msg);
+   });
+
+  socket.on('disconnect', () => {
+    console.log(`a user  disconnected!`);
+  });
+});
+
+
+
+
+
+body {
+  background-color: #f4f7f6;
+  margin-top: 20px;
+
+}
+
+.chat .chat-header {
+  padding: 15px 20px;
+  border-bottom: 2px solid #f4f7f6;
+}
+
+.chat .chat-header img {
+  float: left;
+  border-radius: 40px;
+  width: 40px;
+}
+
+.chat .chat-header .chat-about {
+  float: left;
+  padding-left: 10px;
+}
+
+.chat .chat-history {
+  padding: 20px;
+  border-bottom: 2px solid #fff;
+}
+
+.chat .chat-history ul {
+  padding: 0;
+}
+
+.chat .chat-history ul li {
+  list-style: none;
+  margin-bottom: 30px;
+}
+
+.chat .chat-history ul li:last-child {
+  margin-bottom: 0px;
+}
+
+.chat .chat-history .message-data {
+  margin-bottom: 15px;
+}
+
+.chat .chat-history .message-data img {
+  border-radius: 40px;
+  width: 40px;
+}
+
+.chat .chat-history .message-data-time {
+  color: #434651;
+  padding-left: 6px;
+
+}
+
+.chat .chat-history .message {
+  color: #444;
+  padding: 18px 20px;
+  line-height: 26px;
+  font-size: 16px;
+  border-radius: 7px;
+  display: inline-block;
+  position: relative;
+
+}
+
+.chat .chat-history .message:after {
+  bottom: 100%;
+  left: 7%;
+  border: solid transparent;
+  content: " ";
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+  border-bottom-color: #fff;
+  border-width: 10px;
+  margin-left: -10px;
+
+}
+
+.chat .chat-history .my-message {
+  background: #efefef;
+
+}
+
+.chat .chat-history .my-message:after {
+  bottom: 100%;
+  left: 30px;
+  border: solid transparent;
+  content: " ";
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+  border-bottom-color: #efefef;
+  border-width: 10px;
+  margin-left: -10px;
+
+}
+
+.chat .chat-history .other-message {
+  background: #e8f1f3;
+  text-align: right;
+
+}
+
+.chat .chat-history .other-message:after {
+  border-bottom-color: #e8f1f3;
+  left: 93%;
+}
+
+.chat .chat-message {
+  padding: 20px;
+}
+
+.msg-para {
+  display: inline-block;
+  margin: 0;
+  padding: 5px;
+  border-radius: 5px;
+  background-color: #8c6363;
+  max-width: 75%;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+.receive-msg {
+  text-align: left;
+  /* background-color: orange; */
+  margin-left: 10px; 
+
+   margin-bottom: 10px;
+}
+ 
+.send-container {
+  text-align: right;
+}
+
+.send-msg {
+  text-align: right;
+  margin-bottom: 10px;
+  margin-right: 30px;
+  margin-top:10px ;
+   
+  
+}
+
+.receive-msg .msg-para {
+  background-color: rgb(219, 168, 74) /* Set the background color for message receiver */
+}
+
+.send-msg .msg-para {
+  background-color:  rgb(177, 166, 166) /* Set the background color for message sender */
+}
+
+
+socket.on('online',async(chatfriend)=>{
+  try {
+    let friend = chatfriend;
+    console.log('socket chatfriend is',friend);
+    let name = friend.username
+    findinuser = await SignupData.findOne({username:name});
+    console.log('socket online',findinuser)
+    let activestatus =  findinuser.status
+    console.log('active status is ',activestatus)
+    await socket.emit('active',activestatus)
+ } catch (error) {
+   console.log(error);
+ }
+})
